@@ -59,7 +59,6 @@ final class RatingStore {
     await (await _preferences()).setString(_key, jsonEncode(values));
   }
 
-  Future<void> applyRemoteRemove(String songId) => remove(songId);
 
   Future<void> clear() async {
     _cached = null;

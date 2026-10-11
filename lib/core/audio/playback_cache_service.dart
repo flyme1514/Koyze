@@ -723,7 +723,7 @@ class PlaybackCacheService {
     this.maxBytes = defaultMaxBytes,
     this.maximumEntryBytes = 512 * 1024 * 1024,
     SourceMediaTransport? sourceMediaTransport,
-  }) : _dio = dio ?? _createDownloadDio(),
+  }) : _dio = dio ?? AppHttpClient.createDownload(),
        _ownsDio = dio == null,
        _downloader = downloader,
        _indexStore = indexStore ?? PrefsPlaybackCacheIndexStore(),
@@ -736,18 +736,6 @@ class PlaybackCacheService {
   /// Production downloads go through [SourceMediaTransport], which refuses
   /// private and link-local addresses. Tests inject [dio] or [downloader].
   bool get _usesPolicyTransport => _ownsDio && _downloader == null;
-
-  static Dio _createDownloadDio() {
-    return AppHttpClient.create(
-      options: BaseOptions(
-        connectTimeout: const Duration(seconds: 20),
-        receiveTimeout: const Duration(minutes: 5),
-        followRedirects: true,
-        maxRedirects: 5,
-        validateStatus: (s) => s != null && s >= 200 && s < 400,
-      ),
-    );
-  }
 
   static String cacheKey({
     required String platform,

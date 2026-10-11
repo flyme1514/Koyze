@@ -256,7 +256,7 @@ class DownloadService {
     DateTime Function()? clock,
     SourceMediaTransport? sourceMediaTransport,
   }) : assert(maxConcurrent > 0),
-       _dio = dio ?? _createDownloadDio(),
+       _dio = dio ?? AppHttpClient.createDownload(),
        _sourceMediaTransport = sourceMediaTransport ?? SourceMediaTransport(),
        _maxConcurrent = maxConcurrent,
        _wifiOnly = wifiOnly,
@@ -282,18 +282,6 @@ class DownloadService {
     }
     if (results.contains(ConnectivityResult.none)) return DownloadNetwork.none;
     return DownloadNetwork.mobile;
-  }
-
-  static Dio _createDownloadDio() {
-    return AppHttpClient.create(
-      options: BaseOptions(
-        connectTimeout: const Duration(seconds: 20),
-        receiveTimeout: const Duration(minutes: 5),
-        followRedirects: true,
-        maxRedirects: 5,
-        validateStatus: (s) => s != null && s >= 200 && s < 400,
-      ),
-    );
   }
 
   void setMusicSourceService(MusicSourceService service) {

@@ -1,4 +1,4 @@
-import { Env, jsonResponse, requireJsonContentType, readJsonBody } from '../../lib/response';
+import { Env, jsonResponse, readJsonRequest } from '../../lib/response';
 import { insertStageSongs } from '../../db/playlist-staging';
 import { getSyncRevision } from '../../db/sync-state';
 import { getUserId } from '../../utils/auth';
@@ -27,9 +27,7 @@ export async function handleSyncStateGet(request: Request, env: Env): Promise<Re
 export async function handleSyncStateSet(request: Request, env: Env): Promise<Response> {
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
 
   const baseRevision = Number(parsed.body.baseRevision);
@@ -127,9 +125,7 @@ function validOperationId(value: string): boolean {
 export async function handleSyncStage(request: Request, env: Env): Promise<Response> {
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
 
   const operationId = String(parsed.body.operationId || '');
@@ -189,9 +185,7 @@ export async function handleSyncAbort(request: Request, url: URL, env: Env): Pro
 export async function handleSyncCommit(request: Request, env: Env): Promise<Response> {
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const operationId = String(parsed.body.operationId || '');
   const baseRevision = Number(parsed.body.baseRevision);

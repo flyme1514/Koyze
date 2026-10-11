@@ -8,6 +8,16 @@ final class AppHttpClient {
     client.interceptors.add(_DiagnosticNetworkInterceptor());
     return client;
   }
+
+  static Dio createDownload() => create(
+    options: BaseOptions(
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(minutes: 5),
+      followRedirects: true,
+      maxRedirects: 5,
+      validateStatus: (status) => status != null && status >= 200 && status < 400,
+    ),
+  );
 }
 
 final class _DiagnosticNetworkInterceptor extends Interceptor {

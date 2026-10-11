@@ -312,9 +312,7 @@ class MusicSourceService {
     if (nasKind != null) {
       return _resolveNasUrl(nasKind, music, resolvedQuality);
     }
-    final songId = (music.songmid?.isNotEmpty == true)
-        ? music.songmid!
-        : (music.hash?.isNotEmpty == true ? music.hash! : music.id);
+    final songId = songIdOf(music);
     final platform = resolvePlatform(music);
     debugPrint(
       '[getPlayUrl] 开始解析: platform=$platform, songId=$songId, quality=$resolvedQuality, source=${music.source}',
@@ -478,9 +476,7 @@ class MusicSourceService {
     CancelToken? cancelToken, {
     required bool acceptDowngradeImmediately,
   }) async {
-    final songId = (music.songmid?.isNotEmpty == true)
-        ? music.songmid!
-        : (music.hash?.isNotEmpty == true ? music.hash! : music.id);
+    final songId = songIdOf(music);
     _QualityAttempt? bestBelow;
 
     final attemptedQualities = <String>{};

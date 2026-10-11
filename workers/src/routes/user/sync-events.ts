@@ -1,4 +1,4 @@
-import { Env, jsonResponse, requireJsonContentType, readJsonBody } from '../../lib/response';
+import { Env, jsonResponse, readJsonRequest } from '../../lib/response';
 import { appendSyncEvents, currentSyncCursor, pullSyncEvents, readEventArray, readEventState } from '../../db/sync-events';
 import { getUserId } from '../../utils/auth';
 
@@ -38,9 +38,7 @@ function validEventPayload(type: string, payload: Record<string, unknown>): bool
 export async function handleSyncPush(request: Request, env: Env): Promise<Response> {
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
-  const contentError = requireJsonContentType(request);
-  if (contentError) return contentError;
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const body = parsed.body;
   const deviceId = body.deviceId;

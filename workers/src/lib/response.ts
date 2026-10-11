@@ -92,3 +92,8 @@ export async function readJsonBody(request: Request): Promise<{ body: Record<str
   }
   return { body: parsed as Record<string, unknown> };
 }
+
+export async function readJsonRequest(request: Request): Promise<{ body: Record<string, unknown> } | Response> {
+  const contentError = requireJsonContentType(request);
+  return contentError ?? readJsonBody(request);
+}

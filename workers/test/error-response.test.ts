@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { internalServerError, readJsonBody } from '../src/lib/response';
+import { internalServerError, readJsonBody, readJsonRequest } from '../src/lib/response';
 
 describe('internalServerError', () => {
   it('returns only a generic error and request ID while logging details', async () => {
@@ -73,5 +73,19 @@ describe('readJsonBody', () => {
     const result = await readJsonBody(request);
     expect(result).toBeInstanceOf(Response);
     expect((result as Response).status).toBe(413);
+  });
+});
+
+describe('readJsonRequest', () => {
+  it('checks Content-Type before reading the request body', async () => {
+    const request = new Request('https://example.com/api/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: '{"username":"alice"}',
+    });
+
+    const result = await readJsonRequest(request);
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(400);
   });
 });

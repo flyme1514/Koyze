@@ -201,6 +201,16 @@ class SourceRequestCancellation {
   }
 }
 
+bool _sameOrigin(Uri left, Uri right) =>
+    left.scheme.toLowerCase() == right.scheme.toLowerCase() &&
+    left.host.toLowerCase() == right.host.toLowerCase() &&
+    left.port == right.port;
+
+Never _throwSourceCancelled() => throw const SourceRequestPolicyException(
+      'cancelled',
+      'Source request was cancelled',
+    );
+
 class SourceRequestPolicy {
   static const _ipv4DeniedPrefixes = <(List<int>, int)>[
     ([0, 0, 0, 0], 8),
@@ -434,21 +444,21 @@ class SourceRequestSandbox {
     var currentOptions = Map<String, dynamic>.from(options);
     try {
       for (var redirects = 0; ; redirects++) {
-        if (cancel.isCancelled) _throwCancelled();
+        if (cancel.isCancelled) _throwSourceCancelled();
         final request = await Future.any([
           policy.validate(current, currentOptions),
           cancel.future.then<ValidatedSourceRequest>(
             (reason) => throw SourceRequestPolicyException('cancelled', reason),
           ),
         ]);
-        if (cancel.isCancelled) _throwCancelled();
+        if (cancel.isCancelled) _throwSourceCancelled();
         final transportFuture = transport(request, cancel);
         unawaited(
           transportFuture.then((lateResponse) {
             if (cancel.isCancelled) lateResponse.close();
           }, onError: (_) {}),
         );
-        if (cancel.isCancelled) _throwCancelled();
+        if (cancel.isCancelled) _throwSourceCancelled();
         final response = await Future.any([
           transportFuture.timeout(
             request.timeout,
@@ -466,7 +476,7 @@ class SourceRequestSandbox {
         ]);
         if (cancel.isCancelled) {
           response.close();
-          _throwCancelled();
+          _throwSourceCancelled();
         }
         final status = response.statusCode;
         final isRedirect =
@@ -509,7 +519,7 @@ class SourceRequestSandbox {
         final bytes = await _readBody(response, request.timeout, cancel);
         if (cancel.isCancelled) {
           _inFlightBytes -= bytes.length;
-          _throwCancelled();
+          _throwSourceCancelled();
         }
         final result = _responseWithLease(response, bytes, cancel);
         permitTransferred = true;
@@ -542,11 +552,6 @@ class SourceRequestSandbox {
     );
     return result;
   }
-
-  bool _sameOrigin(Uri left, Uri right) =>
-      left.scheme.toLowerCase() == right.scheme.toLowerCase() &&
-      left.host.toLowerCase() == right.host.toLowerCase() &&
-      left.port == right.port;
 
   Future<List<int>> _readBody(
     SourceTransportResponse response,
@@ -635,10 +640,6 @@ class SourceRequestSandbox {
     }
   }
 
-  Never _throwCancelled() => throw const SourceRequestPolicyException(
-    'cancelled',
-    'Source request was cancelled',
-  );
 }
 
 const _crossOriginSafeHeaders = {
@@ -761,7 +762,7 @@ class SourceStreamSandbox {
         currentOptions = sourceRedirectOptions(
           request,
           status!,
-          crossOrigin: !_sameSourceOrigin(current, next),
+          crossOrigin: !_sameOrigin(current, next),
         );
         current = next;
       } finally {
@@ -770,13 +771,3 @@ class SourceStreamSandbox {
     }
   }
 }
-
-bool _sameSourceOrigin(Uri left, Uri right) =>
-    left.scheme.toLowerCase() == right.scheme.toLowerCase() &&
-    left.host.toLowerCase() == right.host.toLowerCase() &&
-    left.port == right.port;
-
-Never _throwSourceCancelled() => throw const SourceRequestPolicyException(
-  'cancelled',
-  'Source request was cancelled',
-);

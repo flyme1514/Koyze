@@ -94,29 +94,36 @@ final homeHeroCardProvider =
       (ref) => HomeHeroCardNotifier(),
     );
 
-class HomeHeroCardNotifier extends StateNotifier<HomeHeroCardId> {
-  HomeHeroCardNotifier({StorageLoader? storage})
-    : _storage = storage ?? (() => StorageService.instance),
-      super(HomeHeroCardId.favorites) {
+typedef _EnumParser<T extends Enum> = T? Function(String? raw);
+
+class _PersistentEnumNotifier<T extends Enum> extends StateNotifier<T> {
+  _PersistentEnumNotifier({
+    required T initial,
+    required String key,
+    required _EnumParser<T> parse,
+    StorageLoader? storage,
+  })  : _key = key,
+        _parse = parse,
+        _storage = storage ?? (() => StorageService.instance),
+        super(initial) {
     _load();
   }
 
-  static const _key = 'home_hero_card_v1';
+  final String _key;
+  final _EnumParser<T> _parse;
   final StorageLoader _storage;
   int _generation = 0;
 
   Future<void> _load() async {
     try {
-      final parsed = HomeHeroCardIdX.tryParse(
-        (await _storage()).getString(_key),
-      );
+      final parsed = _parse((await _storage()).getString(_key));
       if (parsed != null && parsed != state) state = parsed;
     } catch (_) {}
   }
 
-  void select(HomeHeroCardId id) {
-    if (state == id) return;
-    state = id;
+  void select(T value) {
+    if (state == value) return;
+    state = value;
     _persist();
   }
 
@@ -128,6 +135,16 @@ class HomeHeroCardNotifier extends StateNotifier<HomeHeroCardId> {
       await storage.setString(_key, state.name);
     } catch (_) {}
   }
+}
+
+class HomeHeroCardNotifier extends _PersistentEnumNotifier<HomeHeroCardId> {
+  HomeHeroCardNotifier({StorageLoader? storage})
+    : super(
+        initial: HomeHeroCardId.favorites,
+        key: 'home_hero_card_v1',
+        parse: HomeHeroCardIdX.tryParse,
+        storage: storage,
+      );
 }
 
 /// 首页大卡片右侧按钮的播放方式（与播放页全局模式独立）。
@@ -166,40 +183,14 @@ final homeHeroPlayModeProvider =
       (ref) => HomeHeroPlayModeNotifier(),
     );
 
-class HomeHeroPlayModeNotifier extends StateNotifier<HomeHeroPlayMode> {
+class HomeHeroPlayModeNotifier extends _PersistentEnumNotifier<HomeHeroPlayMode> {
   HomeHeroPlayModeNotifier({StorageLoader? storage})
-    : _storage = storage ?? (() => StorageService.instance),
-      super(HomeHeroPlayMode.shuffle) {
-    _load();
-  }
-
-  static const _key = 'home_hero_play_mode_v1';
-  final StorageLoader _storage;
-  int _generation = 0;
-
-  Future<void> _load() async {
-    try {
-      final parsed = HomeHeroPlayModeX.tryParse(
-        (await _storage()).getString(_key),
+    : super(
+        initial: HomeHeroPlayMode.shuffle,
+        key: 'home_hero_play_mode_v1',
+        parse: HomeHeroPlayModeX.tryParse,
+        storage: storage,
       );
-      if (parsed != null && parsed != state) state = parsed;
-    } catch (_) {}
-  }
-
-  void select(HomeHeroPlayMode mode) {
-    if (state == mode) return;
-    state = mode;
-    _persist();
-  }
-
-  Future<void> _persist() async {
-    final generation = ++_generation;
-    try {
-      final storage = await _storage();
-      if (generation != _generation) return;
-      await storage.setString(_key, state.name);
-    } catch (_) {}
-  }
 }
 
 /// 首页右上角「首页大卡片设置」弹层：选卡片 + 选播放模式。

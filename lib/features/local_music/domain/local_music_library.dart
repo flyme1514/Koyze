@@ -168,8 +168,8 @@ class LocalMusicLibrary {
     final modifiedMillis = _asInt(entry['modifiedAtMillis']);
     final durationMillis = _asInt(entry['durationMillis']);
     final bitrate = _asNullableInt(entry['bitrate']);
-    final title =
-        _cleanAndroidText(entry['title']) ?? titleFromFileName(fileName);
+    final cleanTitle = _cleanAndroidText(entry['title']);
+    final title = cleanTitle ?? titleFromFileName(fileName);
     final artist = _cleanAndroidArtist(entry['artist']);
     return LocalTrack(
       path: path.isNotEmpty ? path : contentUri ?? '',
@@ -184,8 +184,7 @@ class LocalMusicLibrary {
       album: _cleanAndroidText(entry['album']) ?? '',
       duration: Duration(milliseconds: durationMillis),
       bitrate: bitrate,
-      hasEmbeddedTags:
-          _cleanAndroidText(entry['title']) != null && artist != null,
+      hasEmbeddedTags: cleanTitle != null && artist != null,
       hasEmbeddedArtwork: false,
       contentUri: contentUri,
       androidSource: entry['androidSource']?.toString(),

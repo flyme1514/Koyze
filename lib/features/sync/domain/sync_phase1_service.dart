@@ -778,7 +778,7 @@ final class SyncPhase1Service {
           await _ratings!.applyRemote(entityId, rating);
         }
       case 'rating.remove':
-        if (_ratings != null) await _ratings!.applyRemoteRemove(entityId);
+        if (_ratings != null) await _ratings!.remove(entityId);
       case 'setting.set':
         final value = data['value']?.toString();
         if (value != null && entityId != 'theme_mode') {

@@ -67,7 +67,7 @@ const routes = new Map<string, RouteHandler>([
   ['POST/api/music/playlist/import', (req, _url, env, ctx) => handlePlaylistImport(req, env, ctx)],
   ['DELETE/api/user/playlist', (req, url, env) => handlePlaylistDelete(req, url, env)],
   ['POST/api/user/playlist/refresh', (req, _url, env, ctx) => handlePlaylistRefresh(req, env, ctx)],
-  ['GET/api/user/list', (req, url, env, ctx) => handleUserPlaylist(req, url, env, ctx)],
+  ['GET/api/user/list', (req, _url, env) => handleUserPlaylist(req, env)],
   ['GET/api/user/sync/status', (req, _url, env) => handleUserSyncStatus(req, env)],
   ['POST/api/user/sync/stage', (req, _url, env) => handleSyncStage(req, env)],
   ['DELETE/api/user/sync/stage', (req, url, env) => handleSyncAbort(req, url, env)],
@@ -98,27 +98,21 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const requestId = request.headers.get('X-Request-ID') || crypto.randomUUID();
     const url = new URL(request.url);
+    const finish = (response: Response): Response => corsResponse(withRequestId(response, requestId), request);
     // 去掉末尾 /，避免 /api/user/login/ 匹配失败
-    let pathname = url.pathname;
-    if (pathname.length > 1 && pathname.endsWith('/')) {
-      pathname = pathname.slice(0, -1);
-    }
+    const pathname = url.pathname.replace(/\/$/, '') || '/';
     const method = request.method.toUpperCase();
 
-    if (method === 'OPTIONS') {
-      return corsResponse(withRequestId(new Response(null, { status: 204 }), requestId), request);
-    }
+    if (method === 'OPTIONS') return finish(new Response(null, { status: 204 }));
 
-    if (!pathname.startsWith('/api/')) {
-      return corsResponse(withRequestId(jsonResponse({
-        name: 'koyze-api',
-        version: VERSION,
-        hint: 'Configure this URL in the app Sync settings',
-        endpoints: ['/api/health', '/api/user/login', '/api/user/list'],
-      }), requestId), request);
-    }
+    if (!pathname.startsWith('/api/')) return finish(jsonResponse({
+      name: 'koyze-api',
+      version: VERSION,
+      hint: 'Configure this URL in the app Sync settings',
+      endpoints: ['/api/health', '/api/user/login', '/api/user/list'],
+    }));
 
-    if (pathname.startsWith('/api/') && pathname !== '/api/ping' && pathname !== '/api/version') {
+    if (pathname !== '/api/ping' && pathname !== '/api/version') {
       const readiness = await checkSchemaReady(env);
       if (!readiness.ready) {
         console.error({
@@ -128,10 +122,7 @@ export default {
           path: pathname,
           reason: readiness.reason,
         });
-        return corsResponse(
-          withRequestId(jsonResponse({ error: '服务尚未完成数据库迁移', requestId }, 503), requestId),
-          request,
-        );
+        return finish(jsonResponse({ error: '服务尚未完成数据库迁移', requestId }, 503));
       }
     }
 
@@ -140,31 +131,25 @@ export default {
       if (seedPaths.has(pathname)) {
         const bootstrap = await seedAdminUser(env, ctx);
         if (pathname === '/api/user/register' && !bootstrap.ready) {
-          response = jsonResponse({ error: '管理员尚未初始化，请先配置 ADMIN_USERNAME/PASSWORD' }, 503);
-          return corsResponse(withRequestId(response, requestId), request);
+          return finish(jsonResponse({ error: '管理员尚未初始化，请先配置 ADMIN_USERNAME/PASSWORD' }, 503));
         }
       }
 
-      if (pathname.startsWith('/api/admin/users')) {
-        response = await handleAdminUsers(request, env);
-        return corsResponse(withRequestId(response, requestId), request);
-      }
+      if (pathname.startsWith('/api/admin/users')) return finish(await handleAdminUsers(request, env));
 
       const handler = routes.get(method + pathname);
-      if (handler) {
-        response = await handler(request, url, env, ctx);
-      } else {
-        response = jsonResponse({
-          error: 'Not Found',
-          method,
-          path: pathname,
-          hint: 'Use POST /api/user/login with JSON body',
-        }, 404);
-      }
+      response = handler
+        ? await handler(request, url, env, ctx)
+        : jsonResponse({
+            error: 'Not Found',
+            method,
+            path: pathname,
+            hint: 'Use POST /api/user/login with JSON body',
+          }, 404);
     } catch (error: unknown) {
       response = internalServerError(error, { requestId, method, path: pathname });
     }
 
-    return corsResponse(withRequestId(response, requestId), request);
+    return finish(response);
   },
 };

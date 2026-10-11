@@ -41,9 +41,7 @@ export class RateLimiterDO implements DurableObject {
     }
 
     const accountRule = body.limits.find((rule) => rule.key === 'account' || rule.key.startsWith('account:'));
-    if (accountRule) {
-    const accountStorageKey = `bucket:${accountRule.key}`;
-    if (!(await this.state.storage.get(accountStorageKey))) {
+    if (accountRule && !(await this.state.storage.get(`bucket:${accountRule.key}`))) {
       // storage.list is paginated; walk pages so capacity counts every account bucket.
       let activeAccountCount = 0;
       const expiredAccountKeys: string[] = [];
@@ -71,7 +69,6 @@ export class RateLimiterDO implements DurableObject {
           limitedBy: 'capacity',
         });
       }
-    }
     }
 
     for (const rule of body.limits) {

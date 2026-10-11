@@ -1,7 +1,7 @@
 /**
  * User authentication routes
  */
-import { Env, jsonResponse, requireJsonContentType, readJsonBody } from '../../lib/response';
+import { Env, jsonResponse, readJsonRequest, requireJsonContentType, readJsonBody } from '../../lib/response';
 import { signToken, verifyToken, hashPassword, verifyPassword, checkPasswordLength } from '../../utils/jwt';
 import { getUserId, isAdmin, requireAuth } from '../../utils/auth';
 import { RateLimiter, RateLimiterUnavailableError, getClientIP } from '../../middleware/rateLimit';
@@ -77,10 +77,7 @@ async function selectUserByUsername(
 }
 
 export async function handleUserLogin(request: Request, env: Env): Promise<Response> {
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const body = parsed.body as { username?: unknown; password?: unknown };
   const { username, password } = body;
@@ -152,10 +149,7 @@ export async function handleUserLogin(request: Request, env: Env): Promise<Respo
 }
 
 export async function handleUserRegister(request: Request, env: Env): Promise<Response> {
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const body = parsed.body as { username?: unknown; password?: unknown };
   const { username, password } = body;
@@ -389,9 +383,7 @@ export async function handleAdminUsers(request: Request, env: Env): Promise<Resp
   }
 
   if (request.method === 'DELETE') {
-    const ctErr = requireJsonContentType(request);
-    if (ctErr) return ctErr;
-    const parsed = await readJsonBody(request);
+    const parsed = await readJsonRequest(request);
     if (parsed instanceof Response) return parsed;
     const id = Number(parsed.body.id);
     if (!Number.isFinite(id) || id <= 0) return jsonResponse({ error: '缺少ID' }, 400);
@@ -409,9 +401,7 @@ export async function handleAdminUsers(request: Request, env: Env): Promise<Resp
   }
 
   if (request.method === 'PUT') {
-    const ctErr = requireJsonContentType(request);
-    if (ctErr) return ctErr;
-    const parsed = await readJsonBody(request);
+    const parsed = await readJsonRequest(request);
     if (parsed instanceof Response) return parsed;
     const body = parsed.body as { id?: unknown; password?: unknown };
     const rawId = body.id;

@@ -1,4 +1,4 @@
-import { Env, jsonResponse, requireJsonContentType, readJsonBody } from '../../lib/response';
+import { Env, jsonResponse, readJsonRequest } from '../../lib/response';
 import { getUserId } from '../../utils/auth';
 import { fetchAndRematch } from '../playlist-import';
 import type { SongInfo } from '../../utils/types';
@@ -10,28 +10,25 @@ import { advanceSyncRevision, getSyncRevision, requireSyncRevision } from '../..
 // the previous dual-write race (KV first, D1 in waitUntil) that could leave
 // KV ahead of D1, behind it, or missing in concurrent saves.
 
+function songFromRow(s: any): any {
+  let meta: any = {};
+  try { meta = JSON.parse(s.metadata || '{}'); } catch { /* corrupted */ }
+  let types: any[] = [];
+  try { types = JSON.parse(s.types || '[]'); } catch { /* corrupted */ }
+  return {
+    name: s.name, singer: s.singer, source: s.source,
+    songmid: s.songmid, albumName: s.album_name, albumId: s.album_id,
+    img: s.img, interval: s.interval,
+    types, hash: s.hash,
+    mrcUrl: meta.mrcUrl || '', lrcUrl: meta.lrcUrl || '', trcUrl: meta.trcUrl || '',
+  };
+}
+
 async function readLoveListFromD1(env: Env, userId: number): Promise<any[]> {
   const songs = await env.DB.prepare(
     "SELECT name, singer, source, songmid, album_name, album_id, img, interval, types, hash, metadata FROM playlist_songs WHERE playlist_id = 'love' AND user_id = ? ORDER BY position"
   ).bind(userId).all<any>();
-  return (songs.results || []).map((s: any) => {
-    let meta: any = {};
-    try { meta = JSON.parse(s.metadata || '{}'); } catch { /* corrupted */ }
-    // B1: types 可能因截断/损坏无法解析，回退为空数组。
-    let types: any[] = [];
-    try { types = JSON.parse(s.types || '[]'); } catch { /* corrupted */ }
-    return {
-      name: s.name, singer: s.singer, source: s.source,
-      songmid: s.songmid, albumName: s.album_name, albumId: s.album_id,
-      img: s.img, interval: s.interval,
-      types, hash: s.hash,
-      mrcUrl: meta.mrcUrl || '', lrcUrl: meta.lrcUrl || '', trcUrl: meta.trcUrl || '',
-    };
-  });
-}
-
-async function readLoveList(env: Env, userId: number, _ctx: ExecutionContext): Promise<any[]> {
-  return readLoveListFromD1(env, userId);
+  return (songs.results || []).map(songFromRow);
 }
 
 async function writeLoveListToD1(env: Env, userId: number, list: any[]): Promise<void> {
@@ -92,7 +89,7 @@ async function appendPlaylistSongsToD1(
 }
 
 // GET /api/user/list — return loveList + imported playlists
-export async function handleUserPlaylist(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+export async function handleUserPlaylist(request: Request, env: Env): Promise<Response> {
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
   try {
@@ -102,7 +99,7 @@ export async function handleUserPlaylist(request: Request, url: URL, env: Env, c
   }
   const startRevision = await getSyncRevision(env, userId);
 
-  const loveList = await readLoveList(env, userId, ctx);
+  const loveList = await readLoveListFromD1(env, userId);
 
   // P2-2: cap rows to keep the response bounded for power users.
   const playlists = await env.DB.prepare(
@@ -133,20 +130,7 @@ export async function handleUserPlaylist(request: Request, url: URL, env: Env, c
   const userList: any[] = [];
   for (const pl of (playlists.results || [])) {
     const songs = songsByPlaylist.get(pl.id as string) || [];
-    const list = songs.map((s: any) => {
-      let meta: any = {};
-      try { meta = JSON.parse(s.metadata || '{}'); } catch { /* corrupted */ }
-      // B1: types 可能因截断/损坏无法解析，回退为空数组。
-      let types: any[] = [];
-      try { types = JSON.parse(s.types || '[]'); } catch { /* corrupted */ }
-      return {
-        name: s.name, singer: s.singer, source: s.source,
-        songmid: s.songmid, albumName: s.album_name, albumId: s.album_id,
-        img: s.img, interval: s.interval,
-        types, hash: s.hash,
-        mrcUrl: meta.mrcUrl || '', lrcUrl: meta.lrcUrl || '', trcUrl: meta.trcUrl || '',
-      };
-    });
+    const list = songs.map(songFromRow);
     userList.push({
       id: pl.id, name: pl.name,
       source: pl.source, source_id: pl.source_id,
@@ -185,10 +169,7 @@ export async function handleUserPlaylistSave(request: Request, env: Env, ctx: Ex
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const body = parsed.body as {
     loveList?: unknown;
@@ -318,10 +299,7 @@ export async function handleLoveAdd(request: Request, env: Env, ctx: ExecutionCo
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const revisionCheck = await requireSyncRevision(
     env,
@@ -404,10 +382,7 @@ export async function handleLoveRemove(request: Request, env: Env, ctx: Executio
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const body = parsed.body as { songs?: unknown; keys?: unknown };
   const revisionCheck = await requireSyncRevision(
@@ -498,10 +473,7 @@ export async function handlePlaylistRefresh(request: Request, env: Env, ctx: Exe
   const userId = await getUserId(request, env);
   if (!userId) return jsonResponse({ error: '未登录' }, 401);
 
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
 
   const id = String(parsed.body.id || '').slice(0, 128);

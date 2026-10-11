@@ -1,7 +1,7 @@
 /**
  * Playlist import: two-phase — preview then save
  */
-import { Env, jsonResponse, requireJsonContentType, readJsonBody } from '../lib/response';
+import { Env, jsonResponse, readJsonRequest } from '../lib/response';
 import { requireAuth } from '../utils/auth';
 import { RateLimiter, RateLimiterUnavailableError, getClientIP } from '../middleware/rateLimit';
 import { importTx, searchTx } from '../sources/tx';
@@ -91,10 +91,7 @@ const IMPORT_IP_MAX = 30;
 const IMPORT_WINDOW_SECONDS = 300;
 
 export async function handlePlaylistImport(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const ctErr = requireJsonContentType(request);
-  if (ctErr) return ctErr;
-
-  const parsed = await readJsonBody(request);
+  const parsed = await readJsonRequest(request);
   if (parsed instanceof Response) return parsed;
   const body = parsed.body as any;
 
