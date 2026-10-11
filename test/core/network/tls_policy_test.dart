@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const centralizedClients = [
-    'lib/core/music_source/platform/music_platform.dart',
-    'lib/features/playlist/domain/playlist_import_service.dart',
-    'lib/core/audio/playback_cache_service.dart',
-    'lib/features/download/domain/download_service.dart',
-  ];
+  const centralizedClients = {
+    'lib/core/music_source/platform/music_platform.dart': 'AppHttpClient.create(',
+    'lib/features/playlist/domain/playlist_import_service.dart': 'AppHttpClient.create(',
+    'lib/core/audio/playback_cache_service.dart': 'AppHttpClient.createDownload(',
+    'lib/features/download/domain/download_service.dart': 'AppHttpClient.createDownload(',
+  };
 
   test('production networking has no bad certificate callback', () {
     for (final file in _productionDartFiles()) {
@@ -60,11 +60,11 @@ final dynamicUrl = '$scheme://example.com';
   });
 
   test('production clients use the centralized system-trust factory', () {
-    for (final path in centralizedClients) {
+    for (final entry in centralizedClients.entries) {
       expect(
-        File(path).readAsStringSync(),
-        contains('AppHttpClient.create('),
-        reason: path,
+        File(entry.key).readAsStringSync(),
+        contains(entry.value),
+        reason: entry.key,
       );
     }
   });
