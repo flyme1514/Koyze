@@ -29,11 +29,29 @@ const nativeHeights = <String, (String, String)>{
   'macOS': ('macos/Runner/MainFlutterWindow.swift', 'homeContentHeight'),
 };
 
+/// 各平台 runner 必须声明 PC 端默认窗口为 4:3 横屏。
+const nativeLandscapeRatios = <String, (String, String)>{
+  'Windows': ('windows/runner/main.cpp', 'kLandscapeWidthPerHeight'),
+  'Linux': ('linux/runner/my_application.cc', 'kLandscapeWidthPerHeight'),
+  'macOS': ('macos/Runner/MainFlutterWindow.swift', 'landscapeWidthPerHeight'),
+};
+
 int _intConst(String source, String name) {
   final match = RegExp('$name\\s*(?::\\s*CGFloat)?\\s*=\\s*(\\d+)')
       .firstMatch(source);
   expect(match, isNotNull, reason: '找不到 $name 的定义');
   return int.parse(match!.group(1)!);
+}
+
+void expectLandscapeRatio(String source, String name, String platform) {
+  final match = RegExp('$name\\s*(?::\\s*CGFloat)?\\s*=\\s*([^\\n]+)')
+      .firstMatch(source);
+  expect(match, isNotNull, reason: '$platform 缺少 $name');
+  expect(
+    match!.group(1),
+    contains('4.0 / 3.0'),
+    reason: '$platform 的 $name 必须保持 4:3 横屏比例',
+  );
 }
 
 void main() {
@@ -105,6 +123,13 @@ void main() {
         entry.key == 'macOS' ? 'breathingRoom' : 'kBreathingRoom',
       );
       expect(breathing, greaterThan(0), reason: entry.key);
+    }
+  });
+
+  test('PC 端默认窗口使用 4:3 横屏比例', () {
+    for (final entry in nativeLandscapeRatios.entries) {
+      final source = File(entry.value.$1).readAsStringSync();
+      expectLandscapeRatio(source, entry.value.$2, entry.key);
     }
   });
 }

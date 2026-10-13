@@ -27,19 +27,17 @@ constexpr int kComfortableContentHeight = kHomeContentHeight + kBreathingRoom;
 constexpr double kMaxWorkAreaFraction = 0.85;
 // 屏幕实在放不下时的保底高度；再矮就交给首页自身滚动。
 constexpr int kMinContentHeight = 560;
-// 内容宽度下限（逻辑单位）。首页快捷功能卡片是「图标 + 标题/副标题 + 箭头」的
-// 横向布局，宽度再窄副标题就会被省略号截断（最长副标题 8 个汉字，11pt 下约 88pt）。
-constexpr int kMinContentWidth = 420;
+// 宽度下限（逻辑单位），防止极小工作区把快捷功能卡片压得过窄。
+constexpr int kMinLandscapeWidth = 420;
 // 上下留出的空隙，避免窗口贴死工作区边缘（标题栏由窗口管理器额外占用）。
 constexpr int kVerticalClearance = 80;
-// iPhone 17 竖屏比例：1206 x 2622 像素。只有在屏幕足够高时才会用到；
-// 多数情况宽度下限先一步生效，窗口会比手机略宽一点（仍是竖屏）。
-constexpr double kPortraitWidthPerHeight = 1206.0 / 2622.0;
+// PC 端默认窗口使用 4:3 横屏比例。
+constexpr double kLandscapeWidthPerHeight = 4.0 / 3.0;
 
-// 宽度取 iPhone 17 的比例，但不低于 kMinContentWidth。
-static int portrait_width_for(int height) {
-  const int scaled_width = static_cast<int>(height * kPortraitWidthPerHeight);
-  return scaled_width < kMinContentWidth ? kMinContentWidth : scaled_width;
+// 宽度取 4:3 比例，但不低于 kMinLandscapeWidth。
+static int landscape_width_for(int height) {
+  const int scaled_width = static_cast<int>(height * kLandscapeWidthPerHeight);
+  return scaled_width < kMinLandscapeWidth ? kMinLandscapeWidth : scaled_width;
 }
 
 // 默认高度按首页内容定（见上方常数），窗口放不下时再按显示器工作区收缩。
@@ -75,7 +73,7 @@ static void set_default_window_size(GtkWindow* window) {
     height = kMinContentHeight;
   }
 
-  gtk_window_set_default_size(window, portrait_width_for(height), height);
+  gtk_window_set_default_size(window, landscape_width_for(height), height);
 }
 
 // Called when first Flutter frame received.

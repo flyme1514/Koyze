@@ -22,9 +22,8 @@ constexpr int kComfortableContentHeight = kHomeContentHeight + kBreathingRoom;
 constexpr double kMaxWorkAreaFraction = 0.85;
 // 屏幕实在放不下时的保底高度；再矮就交给首页自身滚动。
 constexpr int kMinContentHeight = 560;
-// 内容宽度下限（逻辑单位）。首页快捷功能卡片是「图标 + 标题/副标题 + 箭头」的
-// 横向布局，宽度再窄副标题就会被省略号截断（最长副标题 8 个汉字，11pt 下约 88pt）。
-constexpr int kMinContentWidth = 420;
+// 宽度下限（逻辑单位），防止极小工作区把快捷功能卡片压得过窄。
+constexpr int kMinLandscapeWidth = 420;
 // 窗口距屏幕上边缘的距离，以及底部至少留出的桌面高度，避免贴死任务栏。
 constexpr int kWindowOrigin = 10;
 constexpr int kBottomClearance = 20;
@@ -36,15 +35,16 @@ constexpr int kNonClientHeight = 0;
 // 与 lib/core/windows/windows_caption_bar.dart 的 barHeight 一致。
 // 按钮画在客户区顶上，不占系统标题栏，所以要加进默认内容高度。
 constexpr int kImmersiveCaptionHeight = 40;
-// iPhone 17 竖屏比例：1206 x 2622 像素。只有在屏幕足够高时才会用到；
-// 多数情况宽度下限先一步生效，窗口会比手机略宽一点（仍是竖屏）。
-constexpr double kPortraitWidthPerHeight = 1206.0 / 2622.0;
+// PC 端默认窗口使用 4:3 横屏比例。
+constexpr double kLandscapeWidthPerHeight = 4.0 / 3.0;
 
-// 宽度取 iPhone 17 的比例，但不低于 kMinContentWidth。
+// 计算整个 Flutter 客户区的宽度。Windows 标题栏是 Flutter 自绘的，
+// 因此比例计算要把它占用的高度也包含进去。
 int ContentWidthFor(int content_height) {
+  const int client_height = content_height + kImmersiveCaptionHeight;
   const int scaled_width =
-      static_cast<int>(content_height * kPortraitWidthPerHeight);
-  return scaled_width < kMinContentWidth ? kMinContentWidth : scaled_width;
+      static_cast<int>(client_height * kLandscapeWidthPerHeight);
+  return scaled_width < kMinLandscapeWidth ? kMinLandscapeWidth : scaled_width;
 }
 
 // 把「想要的内容区高度」换算成 Create 需要的外框尺寸。Win32Window::Create 会把

@@ -16,19 +16,17 @@ class MainFlutterWindow: NSWindow {
   private static let maxVisibleFrameFraction: CGFloat = 0.85
   // 屏幕实在放不下时的保底高度；再矮就交给首页自身滚动。
   private static let minContentHeight: CGFloat = 560
-  // 内容宽度下限（逻辑点）。首页快捷功能卡片是「图标 + 标题/副标题 + 箭头」的
-  // 横向布局，宽度再窄副标题就会被省略号截断（最长副标题 8 个汉字，11pt 下约 88pt）。
-  private static let minContentWidth: CGFloat = 420
+  // 宽度下限（逻辑点），防止极小工作区把快捷功能卡片压得过窄。
+  private static let minLandscapeWidth: CGFloat = 420
   // 标题栏 + 居中后上下留出的空隙。
   private static let verticalChrome: CGFloat = 80
-  // iPhone 17 竖屏比例：1206 x 2622 像素。只有在屏幕足够高时才会用到；
-  // 多数情况宽度下限先一步生效，窗口会比手机略宽一点（仍是竖屏）。
-  private static let portraitWidthPerHeight: CGFloat = 1206.0 / 2622.0
+  // PC 端默认窗口使用 4:3 横屏比例。
+  private static let landscapeWidthPerHeight: CGFloat = 4.0 / 3.0
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     self.contentViewController = flutterViewController
-    self.applyPortraitDefaultSize()
+    self.applyLandscapeDefaultSize()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
@@ -37,7 +35,7 @@ class MainFlutterWindow: NSWindow {
 
   /// 默认高度按首页内容定（见上方常数），窗口放不下时再按屏幕可用高度收缩。
   /// setContentSize 收的就是内容区尺寸，所以这里不需要补偿标题栏。
-  private func applyPortraitDefaultSize() {
+  private func applyLandscapeDefaultSize() {
     var height = MainFlutterWindow.comfortableContentHeight
 
     if let visibleFrame = (self.screen ?? NSScreen.main)?.visibleFrame {
@@ -50,8 +48,9 @@ class MainFlutterWindow: NSWindow {
       height = max(height, MainFlutterWindow.minContentHeight)
     }
 
-    let scaledWidth = (height * MainFlutterWindow.portraitWidthPerHeight).rounded()
-    let width = max(scaledWidth, MainFlutterWindow.minContentWidth)
+    let scaledWidth =
+      (height * MainFlutterWindow.landscapeWidthPerHeight).rounded()
+    let width = max(scaledWidth, MainFlutterWindow.minLandscapeWidth)
     self.setContentSize(NSSize(width: width, height: height))
     self.center()
   }
