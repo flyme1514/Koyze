@@ -50,3 +50,23 @@ jobs:
             "$TARGET/api/user/login" || true
           cat /tmp/invalid.json 2>/dev/null || true
           echo
+
+          # Exercises the only code path our 401 probes never reach:
+          # hashPassword (PBKDF2) -> INSERT into users -> signToken ->
+          # getJwtSecret (D1 write into system_settings) -> HMAC.
+          # Creates one throwaway, non-admin account; delete it afterwards.
+          echo "--- register probe account (PBKDF2 + D1 write + JWT init) ---"
+          curl -sS -o /tmp/reg.json -w 'HTTP %{http_code} time=%{time_total}s\n' --max-time 60 \
+            -X POST -H 'Content-Type: application/json' \
+            -d '{"username":"koyze_probe_unknown_user","password":"Probe-Only-Delete-Me-2026"}' \
+            "$TARGET/api/user/register" || true
+          cat /tmp/reg.json 2>/dev/null || true
+          echo
+
+          echo "--- login as that probe account (PBKDF2 verify + token signing) ---"
+          curl -sS -o /tmp/reglogin.json -w 'HTTP %{http_code} time=%{time_total}s\n' --max-time 60 \
+            -X POST -H 'Content-Type: application/json' \
+            -d '{"username":"koyze_probe_unknown_user","password":"Probe-Only-Delete-Me-2026"}' \
+            "$TARGET/api/user/login" || true
+          cat /tmp/reglogin.json 2>/dev/null || true
+          echo
