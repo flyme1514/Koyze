@@ -1,0 +1,52 @@
+name: Diag probe downstream
+
+# Temporary diagnostic workflow: probes an already-deployed koyze-api worker
+# from a GitHub runner (this machine's egress blocks *.workers.dev).
+# Delete this file once the diagnosis is done.
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe downstream worker
+        env:
+          TARGET: https://koyze-api.634120618.workers.dev
+        run: |
+          set -uo pipefail
+          echo "target=$TARGET"
+
+          echo "--- root ---"
+          curl -sS -o /tmp/root.json -w 'HTTP %{http_code}\n' --max-time 25 "$TARGET/" || true
+          cat /tmp/root.json 2>/dev/null || true
+          echo
+
+          echo "--- health ---"
+          curl -sS -o /tmp/health.json -w 'HTTP %{http_code}\n' --max-time 25 "$TARGET/api/health" || true
+          cat /tmp/health.json 2>/dev/null || true
+          echo
+
+          echo "--- login with an unknown username (never reaches PBKDF2) ---"
+          curl -sS -o /tmp/bogus.json -w 'HTTP %{http_code}\n' --max-time 25 \
+            -X POST -H 'Content-Type: application/json' \
+            -d '{"username":"koyze_probe_unknown_user","password":"probe-not-a-real-password"}' \
+            "$TARGET/api/user/login" || true
+          cat /tmp/bogus.json 2>/dev/null || true
+          echo
+
+          echo "--- login with invalid username characters (400 path) ---"
+          curl -sS -o /tmp/invalid.json -w 'HTTP %{http_code}\n' --max-time 25 \
+            -X POST -H 'Content-Type: application/json' \
+            -d '{"username":"bad user!","password":"probe-not-a-real-password"}' \
+            "$TARGET/api/user/login" || true
+          cat /tmp/invalid.json 2>/dev/null || true
+          echo
