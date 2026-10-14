@@ -188,17 +188,30 @@ jobs:
           done
 
           # 3) login（显式 POST）
+          #
+          # 全新部署后的第一次登录是整条链路里最重的一次请求：它要同时完成
+          # 管理员初始化（PBKDF2 建哈希 + 首次写 users）、首次写入 JWT 密钥、
+          # 以及 Durable Object 冷启动。这一步偶发失败会随后自愈，所以 5xx
+          # 允许重试；4xx（凭据错误 / 限流）立即失败，重试没有意义。
           LOGIN_BODY="$(jq -n --arg username "$ADMIN_USERNAME" --arg password "$ADMIN_PASSWORD" '{username:$username,password:$password}')"
-          CODE="$(curl -sS -o /tmp/login.json -w '%{http_code}' \
-            -X POST \
-            -H 'Content-Type: application/json' \
-            -d "$LOGIN_BODY" \
-            "$WORKER_URL/api/user/login" || true)"
-          echo "POST /api/user/login -> HTTP $CODE"
-          cat /tmp/login.json || true
-          echo
-          if [ "$CODE" != "200" ]; then
-            echo "login failed with HTTP $CODE" >&2
+          LOGIN_OK=0
+          for i in 1 2 3; do
+            CODE="$(curl -sS -o /tmp/login.json -w '%{http_code}' \
+              -X POST \
+              -H 'Content-Type: application/json' \
+              -d "$LOGIN_BODY" \
+              "$WORKER_URL/api/user/login" || true)"
+            echo "POST /api/user/login -> HTTP $CODE"
+            cat /tmp/login.json || true
+            echo
+            case "$CODE" in
+              200) LOGIN_OK=1; break;;
+              5??) echo "login returned HTTP $CODE (attempt $i/3), retrying in 5s" >&2; sleep 5;;
+              *) echo "login failed with HTTP $CODE" >&2; exit 1;;
+            esac
+          done
+          if [ "$LOGIN_OK" != "1" ]; then
+            echo "login failed with HTTP $CODE after 3 attempts" >&2
             exit 1
           fi
           TOKEN="$(jq -er '.token' /tmp/login.json)"
